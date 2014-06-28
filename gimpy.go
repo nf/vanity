@@ -46,9 +46,9 @@ func main() {
 }
 
 type Server struct {
-	dns      *dns.Client
 	resolver string
 	refresh  time.Duration
+	dns      *dns.Client
 
 	mu    sync.RWMutex
 	hosts map[string]*Host
@@ -56,18 +56,14 @@ type Server struct {
 
 func NewServer(resolver string, refresh time.Duration) *Server {
 	return &Server{
-		dns: &dns.Client{
-			Net:            "tcp",
-			SingleInflight: true,
-		},
 		resolver: resolver,
 		refresh:  refresh,
+		dns:      &dns.Client{Net: "tcp", SingleInflight: true},
 		hosts:    map[string]*Host{},
 	}
 }
 
 type Host struct {
-	name    string
 	imports []*Import
 	expiry  time.Time
 }
@@ -120,7 +116,7 @@ func (s *Server) lookup(name string) (*Host, error) {
 	if err != nil {
 		return nil, err
 	}
-	h := &Host{name: name, expiry: time.Now().Add(s.refresh)}
+	h := &Host{expiry: time.Now().Add(s.refresh)}
 	for _, a := range r.Answer {
 		t, ok := a.(*dns.TXT)
 		if !ok {
