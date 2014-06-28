@@ -22,12 +22,12 @@ package main
 import (
 	"errors"
 	"flag"
+	"html/template"
 	"log"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
-	"text/template"
 	"time"
 
 	"github.com/miekg/dns"
@@ -36,7 +36,7 @@ import (
 var (
 	httpAddr      = flag.String("http", ":80", "HTTP listen address")
 	resolverAddr  = flag.String("resolver", "8.8.8.8:53", "DNS resolver address")
-	refreshPeriod = flag.Duration("refresh", 2*time.Minute, "refresh period")
+	refreshPeriod = flag.Duration("refresh", 15*time.Minute, "refresh period")
 )
 
 func main() {
@@ -113,14 +113,14 @@ func (s *Server) match(host string) *Host {
 	return nil
 }
 
-func (s *Server) lookup(host string) (*Host, error) {
+func (s *Server) lookup(name string) (*Host, error) {
 	m := &dns.Msg{}
-	m.SetQuestion(host+".", dns.TypeTXT)
+	m.SetQuestion(name+".", dns.TypeTXT)
 	r, _, err := s.dns.Exchange(m, s.resolver)
 	if err != nil {
 		return nil, err
 	}
-	h := &Host{name: host, expiry: time.Now().Add(s.refresh)}
+	h := &Host{name: name, expiry: time.Now().Add(s.refresh)}
 	for _, a := range r.Answer {
 		t, ok := a.(*dns.TXT)
 		if !ok {
@@ -137,7 +137,7 @@ func (s *Server) lookup(host string) (*Host, error) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.hosts[host] = h
+	s.hosts[name] = h
 	return h, nil
 }
 
@@ -146,8 +146,7 @@ func parseImport(s string) *Import {
 	if !strings.HasPrefix(s, p) {
 		return nil
 	}
-	s = s[len(p):]
-	f := strings.Fields(s)
+	f := strings.Fields(s[len(p):])
 	if len(f) != 3 {
 		return nil
 	}
