@@ -1,7 +1,22 @@
-// Command gimpy is a web server that serves go-import meta redirect headers.
-// See "go help importpath" for details.
+// Command gimpy is a web server that serves go-import meta redirects for
+// vanity domains. See "go help importpath" for details.
 //
-// TODO(adg): Add more documentation.
+// Gimpy reads TXT records for the requested domain to determine the redirect
+// target. For example, if you wish to use example.org as the base of your
+// import path, create an A record that points to a gimpy server:
+//
+// 	example.org.	A	108.59.82.123
+//
+// Then add a TXT record for each repository that you wish to map:
+//
+//	example.org.	TXT	"go-import example.org/foo git https://github.com/example/foo"
+//	example.org.	TXT	"go-import example.org/bar hg https://code.google.com/p/bar"
+//
+// (The author runs a public gimpy instance at 108.59.82.123 that you may use
+// for your own redirects. It comes with no SLA, so use at your own risk.)
+//
+// Written by Andrew Gerrand <adg@golang.org>
+//
 package main
 
 import (
@@ -59,13 +74,11 @@ type Import struct {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	host, _, _ := net.SplitHostPort(r.Host)
+	host, _, err := net.SplitHostPort(r.Host)
+	if err != nil {
+		host = r.Host
+	}
 	if r.FormValue("go-get") != "1" {
-		if r.URL.Path == "/" {
-			// TODO(adg): redirect to gimpy documentation
-			http.NotFound(w, r)
-			return
-		}
 		http.Redirect(w, r, "http://godoc.org/"+host+r.URL.Path, http.StatusFound)
 		return
 	}
