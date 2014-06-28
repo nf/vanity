@@ -34,31 +34,34 @@ import (
 )
 
 var (
-	httpAddr     = flag.String("http", ":80", "HTTP listen address")
-	resolverAddr = flag.String("resolver", "8.8.8.8:53", "DNS resolver address")
+	httpAddr      = flag.String("http", ":80", "HTTP listen address")
+	resolverAddr  = flag.String("resolver", "8.8.8.8:53", "DNS resolver address")
+	refreshPeriod = flag.Duration("refresh", 2*time.Minute, "refresh period")
 )
 
 func main() {
 	flag.Parse()
-	http.Handle("/", NewServer(*resolverAddr))
+	http.Handle("/", NewServer(*resolverAddr, *refreshPeriod))
 	log.Fatal(http.ListenAndServe(*httpAddr, nil))
 }
 
 type Server struct {
 	dns      *dns.Client
 	resolver string
+	refresh  time.Duration
 
 	mu    sync.RWMutex
 	hosts map[string]*Host
 }
 
-func NewServer(resolver string) *Server {
+func NewServer(resolver string, refresh time.Duration) *Server {
 	return &Server{
 		dns: &dns.Client{
 			Net:            "tcp",
 			SingleInflight: true,
 		},
 		resolver: resolver,
+		refresh:  refresh,
 		hosts:    map[string]*Host{},
 	}
 }
@@ -117,7 +120,7 @@ func (s *Server) lookup(host string) (*Host, error) {
 	if err != nil {
 		return nil, err
 	}
-	h := &Host{name: host, expiry: time.Now().Add(time.Hour)}
+	h := &Host{name: host, expiry: time.Now().Add(s.refresh)}
 	for _, a := range r.Answer {
 		t, ok := a.(*dns.TXT)
 		if !ok {
