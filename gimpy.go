@@ -37,11 +37,19 @@ var (
 	httpAddr      = flag.String("http", ":80", "HTTP listen address")
 	resolverAddr  = flag.String("resolver", "8.8.8.8:53", "DNS resolver address")
 	refreshPeriod = flag.Duration("refresh", 15*time.Minute, "refresh period")
+	anusEnabled   = flag.Bool("anus", false, "enable anus.io web root")
 )
 
 func main() {
 	flag.Parse()
-	http.Handle("/", NewServer(*resolverAddr, *refreshPeriod))
+	s := NewServer(*resolverAddr, *refreshPeriod)
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" && *anusEnabled {
+			anus(w, r)
+			return
+		}
+		s.ServeHTTP(w, r)
+	})
 	log.Fatal(http.ListenAndServe(*httpAddr, nil))
 }
 
@@ -147,4 +155,15 @@ func parseImport(s string) *Import {
 		return nil
 	}
 	return &Import{f[0], f[1], f[2]}
+}
+
+func anus(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(200)
+	for {
+		if _, err := w.Write([]byte("\U0001F4A9")); err != nil {
+			return
+		}
+		w.(http.Flusher).Flush()
+		time.Sleep(100 * time.Millisecond)
+	}
 }
