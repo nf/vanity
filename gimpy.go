@@ -30,7 +30,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/miekg/dns"
+	"anus.io/gimpy/internal/dns"
 )
 
 var (
