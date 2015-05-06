@@ -158,7 +158,9 @@ func parseImport(s string) *Import {
 }
 
 func anus(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(200)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
 	for {
 		if _, err := w.Write([]byte("\U0001F4A9")); err != nil {
 			return
