@@ -1,0 +1,10 @@
+To deploy to Compute Engine:
+
+gcloud --project $PROJECT compute instances create $NAME \
+	--address $IP \
+	--image container-vm-v20150112 \
+	--image-project google-containers \
+	--zone us-central1-a \
+	--machine-type f1-micro \
+	--tags http-server \
+	--metadata-from-file google-container-manifest=containers.yaml
