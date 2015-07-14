@@ -81,6 +81,8 @@ type Import struct {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Server", "github.com/nf/vanity")
+
 	host, _, err := net.SplitHostPort(r.Host)
 	if err != nil {
 		host = r.Host
