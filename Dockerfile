@@ -1,5 +1,5 @@
 FROM golang
-ADD . /go/src/anus.io/gimpy
-RUN go install anus.io/gimpy
-ENTRYPOINT ["/go/bin/gimpy", "-http=:8080", "-anus"]
+ADD . /go/src/github.com/nf/vanity
+RUN go install github.com/nf/vanity
+ENTRYPOINT ["/go/bin/vanity", "-http=:8080", "-anus"]
 EXPOSE 8080

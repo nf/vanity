@@ -1,9 +1,9 @@
-// Command gimpy is a web server that serves go-import meta redirects for
+// Command vanity is a web server that serves go-import meta redirects for
 // vanity domains. See "go help importpath" for details.
 //
 // Gimpy reads TXT records for the requested domain to determine the redirect
 // target. For example, if you wish to use example.org as the base of your
-// import path, create an A record that points to a gimpy server:
+// import path, create an A record that points to a vanity server:
 //
 // 	example.org.	A	108.59.82.123
 //
@@ -12,7 +12,7 @@
 //	example.org.	TXT	"go-import example.org/foo git https://github.com/example/foo"
 //	example.org.	TXT	"go-import example.org/bar hg https://code.google.com/p/bar"
 //
-// (The author runs a public gimpy instance at 108.59.82.123 that you may use
+// (The author runs a public vanity instance at 108.59.82.123 that you may use
 // for your own redirects. It comes with no SLA, so use at your own risk.)
 //
 // Written by Andrew Gerrand <adg@golang.org>
@@ -30,7 +30,7 @@ import (
 	"sync"
 	"time"
 
-	"anus.io/gimpy/internal/dns"
+	"github.com/nf/vanity/internal/dns"
 )
 
 var (

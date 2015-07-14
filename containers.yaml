@@ -1,7 +1,7 @@
 version: v1beta2
 containers:
-- name: gimpy
-  image: wh3rd/gimpy
+- name: vanity
+  image: wh3rd/vanity
   ports:
   - name: http
     hostPort: 80
