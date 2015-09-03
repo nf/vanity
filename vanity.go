@@ -1,7 +1,7 @@
 // Command vanity is a web server that serves go-import meta redirects for
 // vanity domains. See "go help importpath" for details.
 //
-// Gimpy reads TXT records for the requested domain to determine the redirect
+// Vanity reads TXT records for the requested domain to determine the redirect
 // target. For example, if you wish to use example.org as the base of your
 // import path, create an A record that points to a vanity server:
 //
