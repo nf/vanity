@@ -20,6 +20,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"errors"
 	"flag"
 	"html/template"
@@ -38,7 +39,9 @@ import (
 )
 
 var (
-	httpAddr      = flag.String("http", "", "HTTP listen address (default to port 80); if specified, disables letsencrypt")
+	httpAddr      = flag.String("http", "", "HTTP listen address")
+	httpsAddr     = flag.String("https", "", "HTTPs listen address (enables letsencrypt)")
+	redirectHTTP  = flag.Bool("redirect_http", false, "Redirect HTTP requests to HTTPS")
 	resolverAddr  = flag.String("resolver", "8.8.8.8:53", "DNS resolver address")
 	refreshPeriod = flag.Duration("refresh", 15*time.Minute, "refresh period")
 	anusEnabled   = flag.Bool("anus", false, "enable anus.io web root")
@@ -46,6 +49,7 @@ var (
 
 func main() {
 	flag.Parse()
+
 	s := NewServer(*resolverAddr, *refreshPeriod)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" && *anusEnabled {
@@ -55,25 +59,43 @@ func main() {
 		s.ServeHTTP(w, r)
 	})
 
-	if *httpAddr != "" {
-		log.Fatal(http.ListenAndServe(*httpAddr, nil))
+	if *httpsAddr != "" {
+		if !metadata.OnGCE() {
+			log.Fatal("Not on GCE. HTTPS only supported on GCE using letsencrypt. Exiting.")
+		}
+		v := func(key string) string {
+			v, err := metadata.InstanceAttributeValue(key)
+			if err != nil {
+				log.Fatalf("Couldn't read %q metadata value: %v", key, err)
+			}
+			return v
+		}
+		var m letsencrypt.Manager
+		if err := letscloud.Cache(&m, v("letscloud-get-url"), v("letscloud-put-url")); err != nil {
+			log.Fatal(err)
+		}
+		srv := &http.Server{
+			Addr:      *httpsAddr,
+			TLSConfig: &tls.Config{GetCertificate: m.GetCertificate},
+		}
+		go func() {
+			log.Println("Starting HTTPS server on", *httpsAddr)
+			log.Fatal(srv.ListenAndServeTLS("", ""))
+		}()
 	}
 
-	var m letsencrypt.Manager
-	if !metadata.OnGCE() {
-		log.Fatal("Not on GCE; exiting. (use -http to run locally)")
-	}
-	v := func(key string) string {
-		v, err := metadata.InstanceAttributeValue(key)
-		if err != nil {
-			log.Fatalf("Couldn't read %q metadata value: %v", key, err)
+	if *httpAddr != "" {
+		var h http.Handler
+		if *redirectHTTP {
+			h = http.HandlerFunc(letsencrypt.RedirectHTTP)
 		}
-		return v
+		go func() {
+			log.Println("Starting HTTP server on", *httpAddr)
+			log.Fatal(http.ListenAndServe(*httpAddr, h))
+		}()
 	}
-	if err := letscloud.Cache(&m, v("letscloud-get-url"), v("letscloud-put-url")); err != nil {
-		log.Fatal(err)
-	}
-	log.Fatal(m.Serve())
+
+	select {}
 }
 
 type Server struct {
