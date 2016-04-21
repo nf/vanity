@@ -30,11 +30,15 @@ import (
 	"sync"
 	"time"
 
+	"google.golang.org/cloud/compute/metadata"
+	"rsc.io/letsencrypt"
+
 	"github.com/nf/vanity/internal/dns"
+	"github.com/nf/vanity/internal/letscloud"
 )
 
 var (
-	httpAddr      = flag.String("http", ":80", "HTTP listen address")
+	httpAddr      = flag.String("http", "", "HTTP listen address (default to port 80); if specified, disables letsencrypt")
 	resolverAddr  = flag.String("resolver", "8.8.8.8:53", "DNS resolver address")
 	refreshPeriod = flag.Duration("refresh", 15*time.Minute, "refresh period")
 	anusEnabled   = flag.Bool("anus", false, "enable anus.io web root")
@@ -50,7 +54,26 @@ func main() {
 		}
 		s.ServeHTTP(w, r)
 	})
-	log.Fatal(http.ListenAndServe(*httpAddr, nil))
+
+	if *httpAddr != "" {
+		log.Fatal(http.ListenAndServe(*httpAddr, nil))
+	}
+
+	var m letsencrypt.Manager
+	if !metadata.OnGCE() {
+		log.Fatal("Not on GCE; exiting. (use -http to run locally)")
+	}
+	v := func(key string) string {
+		v, err := metadata.InstanceAttributeValue(key)
+		if err != nil {
+			log.Fatalf("Couldn't read %q metadata value: %v", key, err)
+		}
+		return v
+	}
+	if err := letscloud.Cache(&m, v("letscloud-get-url"), v("letscloud-put-url")); err != nil {
+		log.Fatal(err)
+	}
+	log.Fatal(m.Serve())
 }
 
 type Server struct {
