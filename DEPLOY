@@ -1,10 +1,15 @@
-To deploy to Compute Engine:
+To deploy to Google Compute Engine, first follow the instructions at
+  https://godoc.org/github.com/nf/vanity/internal/letscloud
+to obtain signed GET and PUT URLs for a Google Cloud Storage object that
+contains a letsencrypt cache file. Put those URLs in the get-url.txt and
+put-url.txt files in the current directory. 
+
+Then do this:
 
 gcloud --project $PROJECT compute instances create $NAME \
 	--address $IP \
-	--image container-vm-v20150112 \
-	--image-project google-containers \
+	--image container-vm \
 	--zone us-central1-a \
 	--machine-type f1-micro \
-	--tags http-server \
-	--metadata-from-file google-container-manifest=containers.yaml
+	--tags http-server,https-server \
+	--metadata-from-file google-container-manifest=containers.yaml,letscloud-get-url=get-url.txt,letscloud-put-url=put-url.txt
