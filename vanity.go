@@ -31,7 +31,7 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/cloud/compute/metadata"
+	"cloud.google.com/go/compute/metadata"
 	"rsc.io/letsencrypt"
 
 	"github.com/nf/vanity/internal/dns"
