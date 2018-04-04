@@ -20,6 +20,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"flag"
@@ -32,16 +33,16 @@ import (
 	"time"
 
 	"cloud.google.com/go/compute/metadata"
-	"rsc.io/letsencrypt"
+	"cloud.google.com/go/storage"
+	"golang.org/x/build/autocertcache"
+	"golang.org/x/crypto/acme/autocert"
 
 	"github.com/nf/vanity/internal/dns"
-	"github.com/nf/vanity/internal/letscloud"
 )
 
 var (
 	httpAddr      = flag.String("http", "", "HTTP listen address")
 	httpsAddr     = flag.String("https", "", "HTTPs listen address (enables letsencrypt)")
-	redirectHTTP  = flag.Bool("redirect_http", false, "Redirect HTTP requests to HTTPS")
 	resolverAddr  = flag.String("resolver", "8.8.8.8:53", "DNS resolver address")
 	refreshPeriod = flag.Duration("refresh", 15*time.Minute, "refresh period")
 	anusEnabled   = flag.Bool("anus", false, "enable anus.io web root")
@@ -51,7 +52,7 @@ func main() {
 	flag.Parse()
 
 	s := NewServer(*resolverAddr, *refreshPeriod)
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	var rootHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" && *anusEnabled {
 			anus(w, r)
 			return
@@ -63,17 +64,19 @@ func main() {
 		if !metadata.OnGCE() {
 			log.Fatal("Not on GCE. HTTPS only supported on GCE using letsencrypt. Exiting.")
 		}
-		v := func(key string) string {
-			v, err := metadata.InstanceAttributeValue(key)
-			if err != nil {
-				log.Fatalf("Couldn't read %q metadata value: %v", key, err)
-			}
-			return v
-		}
-		var m letsencrypt.Manager
-		if err := letscloud.Cache(&m, v("letscloud-get-url"), v("letscloud-put-url")); err != nil {
+		cli, err := storage.NewClient(context.Background())
+		if err != nil {
 			log.Fatal(err)
 		}
+		bucket, err := metadata.InstanceAttributeValue("vanity-letsencrypt-bucket")
+		if err != nil {
+			log.Fatal(err)
+		}
+		m := &autocert.Manager{
+			Cache:  autocertcache.NewGoogleCloudStorageCache(cli, bucket), // TODO
+			Prompt: autocert.AcceptTOS,
+		}
+		rootHandler = m.HTTPHandler(rootHandler)
 		srv := &http.Server{
 			Addr:      *httpsAddr,
 			TLSConfig: &tls.Config{GetCertificate: m.GetCertificate},
@@ -85,16 +88,13 @@ func main() {
 	}
 
 	if *httpAddr != "" {
-		var h http.Handler
-		if *redirectHTTP {
-			h = http.HandlerFunc(letsencrypt.RedirectHTTP)
-		}
 		go func() {
 			log.Println("Starting HTTP server on", *httpAddr)
-			log.Fatal(http.ListenAndServe(*httpAddr, h))
+			log.Fatal(http.ListenAndServe(*httpAddr, nil))
 		}()
 	}
 
+	http.Handle("/", rootHandler)
 	select {}
 }
 
