@@ -53,7 +53,8 @@ func main() {
 
 	s := NewServer(*resolverAddr, *refreshPeriod)
 	var rootHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" && *anusEnabled {
+
+		if *anusEnabled && r.URL.Path == "/" && r.FormValue("go-get") != "1" {
 			anus(w, r)
 			return
 		}
