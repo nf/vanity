@@ -51,11 +51,18 @@ var (
 func main() {
 	flag.Parse()
 
+	var anusHandler http.Handler
+	if *anusEnabled {
+		t := newHTTPTracker()
+		http.Handle("/anusz", t)
+		anusHandler = t.Wrap(http.HandlerFunc(anus))
+	}
+
 	s := NewServer(*resolverAddr, *refreshPeriod)
 	var rootHandler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		if *anusEnabled && r.URL.Path == "/" && r.FormValue("go-get") != "1" {
-			anus(w, r)
+			anusHandler.ServeHTTP(w, r)
 			return
 		}
 		s.ServeHTTP(w, r)
